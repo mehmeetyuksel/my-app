@@ -84,7 +84,6 @@ router.post('/add-post', async (req: Request, res: Response) => {
 })
 
 router.get('/get-posts', async (req: Request, res: Response) => {
-  console.log(req.signedCookies, "cookie")
   const command = new GetCommand({
     TableName: "User",
     Key: {
@@ -98,6 +97,35 @@ router.get('/get-posts', async (req: Request, res: Response) => {
         message: 'Başarılı!',
         posts: response.Item!.posts
     })
+})
+
+router.post('/remove-post', async (req: Request, res: Response) => {
+
+  const getCommand = new GetCommand({
+      TableName: "User",
+      Key: {
+        _id: req.user!._id
+      }
+    }); 
+  const user = await ddbDocClient.send(getCommand);
+  const userPosts = user.Item!?.posts.filter((post: any) => post.id !== req.body.id)
+
+  const command = new UpdateCommand({
+      TableName: "User",
+      Key: {
+        _id: req.user!._id
+      },
+      UpdateExpression: "set posts = :post",
+      ExpressionAttributeValues: {
+        ":post": userPosts,
+      },
+      ReturnValues: "NONE",
+    });
+  const response = await ddbDocClient.send(command); 
+  res.status(200).json({
+      message: 'Başarılı!',
+      response
+  })
 })
 
 export default router
