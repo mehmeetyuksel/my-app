@@ -8,7 +8,7 @@ const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 export const handleRefreshToken = async (req: Request, res: Response) => {
     const { cookies } = req
-    if (!cookies.jwt) return res.status(401).send({message :'hata'})
+    if (!cookies.jwt) return res.status(401).send({message :'Cookies içerisinde JWT bulunamadı!'})
     let refreshToken = cookies.jwt
     const command = new ScanCommand({
         FilterExpression:'refreshToken = :rt',

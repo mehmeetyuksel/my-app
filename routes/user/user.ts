@@ -249,7 +249,7 @@ export const login = async (req: Request, res: Response) => {
 
   let isPasswordTrue = await bcrypt.compare(password, user.Item.password)
 
-  if (!isPasswordTrue) return res.status(403).json({
+  if (!isPasswordTrue) return res.status(400).json({
     message: 'Hatalı parola!'
   })
 
@@ -281,7 +281,7 @@ export const login = async (req: Request, res: Response) => {
 
   await ddbDocClient.send(command);
 
-  res.cookie('jwt', refreshToken, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000, secure: true, sameSite: 'none', path: '/login' })
+  res.cookie('jwt', refreshToken, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000, secure: true, sameSite: 'none' })
 
   res.status(200).json({
     user: {
