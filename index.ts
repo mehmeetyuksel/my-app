@@ -18,7 +18,6 @@ app.use(credential)
 app.use(cors(corsOptions))
 app.use(express.json())
 app.post('/sign-up', signUp)
-
 app.post('/log-in', login )
 app.get("/refresh", handleRefreshToken)
 app.use(verifyJwt)
