@@ -13,10 +13,11 @@ dotenv.config();
 
 const app: Express = express();
 const port = process.env.PORT;
+app.use(express.json({limit: '50mb'}));
+app.use(express.urlencoded({limit: '50mb', extended: true}));
 app.use(cookieParser())
 app.use(credential)
 app.use(cors(corsOptions))
-app.use(express.json())
 app.post('/sign-up', signUp)
 app.post('/log-in', login )
 app.get("/refresh", handleRefreshToken)

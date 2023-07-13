@@ -1,58 +1,13 @@
-import { CreateTableCommand, DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import express, { Request, Response } from 'express';
-import { DynamoDBDocument, GetCommand, UpdateCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { GetCommand, UpdateCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
 import bcrypt from "bcrypt"
+import fflate from 'fflate'
+import { imageUpload } from "../../utils/functions";
+import { ddbDocClient } from "../../aws/config";
+import jwt from 'jsonwebtoken'
+import { v4 as uuidv4 } from 'uuid'
 
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-
-const { v4: uuidv4 } = require('uuid');
-const marshallOptions = {
-  // Whether to automatically convert empty strings, blobs, and sets to `null`.
-  convertEmptyValues: false, // false, by default.
-  // Whether to remove undefined values while marshalling.
-  removeUndefinedValues: true, // false, by default.
-  // Whether to convert typeof object to map attribute.
-  convertClassInstanceToMap: false, // false, by default.
-};
-
-const unmarshallOptions = {
-  // Whether to return numbers as a string instead of converting them to native JavaScript numbers.
-  wrapNumbers: false, // false, by default.
-};
-
-const translateConfig = { marshallOptions, unmarshallOptions };
-
-const client = new DynamoDBClient({});
-const ddbDocClient = DynamoDBDocument.from(client, translateConfig);
-
-router.post('/create-table', async (req: Request, res: Response) => {
-  const command = new CreateTableCommand({
-    TableName: "User",
-    // For more information about data types,
-    // see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes and
-    // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Programming.LowLevelAPI.html#Programming.LowLevelAPI.DataTypeDescriptors
-    AttributeDefinitions: [
-      {
-        AttributeName: "_id",
-        AttributeType: "S",
-      },
-    ],
-    KeySchema: [
-      {
-        AttributeName: "_id",
-        KeyType: "HASH",
-      },
-    ],
-    ProvisionedThroughput: {
-      ReadCapacityUnits: 1,
-      WriteCapacityUnits: 1,
-    },
-  });
-
-  const response = await client.send(command);
-  res.status(200).json({ response })
-})
 
 router.post('/add-post', async (req: Request, res: Response) => {
 
@@ -133,7 +88,7 @@ router.post('/remove-post', async (req: Request, res: Response) => {
 })
 
 router.post('/add-todo', async (req: Request, res: Response) => {
-
+  const { photos, subject, detail, date } = req.body
   const getCommand = new GetCommand({
     TableName: "User",
     Key: {
@@ -142,13 +97,25 @@ router.post('/add-todo', async (req: Request, res: Response) => {
   });
   const user = await ddbDocClient.send(getCommand);
   const todos = user.Item!?.todos?.length > 0 ? user.Item!.todos : []
+
+  let imagesUrls = []
+  if (photos.length) {
+    imagesUrls = await Promise.all(photos.map(async (photo: any) => {
+      let data = Buffer.from(photo.base64, 'base64')
+      let inflatedData = fflate.decompressSync(data)
+      let url = await imageUpload(photo.name, inflatedData, photo.type)
+      return url
+    }))
+  }
   const newTodo = {
-    subject: req.body.subject,
-    detail: req.body.detail,
-    date: req.body.date,
+    subject,
+    detail,
+    date,
+    photos: imagesUrls,
     id: uuidv4(),
     createdAt: Date.now()
   }
+
   const command = new UpdateCommand({
     TableName: "User",
     Key: {
@@ -165,6 +132,9 @@ router.post('/add-todo', async (req: Request, res: Response) => {
     message: 'Başarılı!',
     response
   })
+
+
+
 })
 
 router.get('/get-todos', async (req: Request, res: Response) => {
@@ -258,14 +228,14 @@ export const login = async (req: Request, res: Response) => {
     name: user.Item.name,
     surname: user.Item.surname,
     _id: user.Item._id,
-  }, process.env.ACCESS_SECRET_KEY, { expiresIn: '5m' })
+  }, process.env.ACCESS_SECRET_KEY!, { expiresIn: '59m' })
 
   const refreshToken = jwt.sign({
     email: user.Item.email,
     name: user.Item.name,
     surname: user.Item.surname,
     _id: user.Item._id,
-  }, process.env.REFRESH_SECRET_KEY, { expiresIn: '1d' })
+  }, process.env.REFRESH_SECRET_KEY!, { expiresIn: '1d' })
 
   const command = new UpdateCommand({
     TableName: "Users",
